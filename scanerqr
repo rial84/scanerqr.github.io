@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Entrada</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #bde2ee; /* Fondo azul claro */
+        }
+        h1 {
+        color: #2c3e50; /* Cambia este código de color al que prefieras */
+        font-size: 3em; /* Puedes ajustar el tamaño si es necesario */
+        }
+
+        #reader {
+            width: 300px;
+            margin: auto;
+        }
+        .counter, .message {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .message {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        img {
+            max-width: 100%; 
+            height: auto;
+            margin: 20px auto; 
+            display: block;
+        }
+        .reset-button {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            font-size: 0.8em;
+            background-color: #ccc;
+            color: #333;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        .reset-button:hover {
+            background-color: #c099e4;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gestión de Entrada</h1>
+    <div id="reader"></div>
+    <div class="counter">Escaneos realizados:</div>
+    <div id="message" class="message"></div>
+    <button class="reset-button" onclick="resetScans()">Reiniciar</button>
+
+    <script>
+        // Códigos QR válidos del 1 al 26
+        const validCodes = Array.from({ length: 26 }, (_, i) => (i + 1).toString());
+        const maxScansPerCode = 37; // Límite de escaneos por código
+        const scanPause = 5000; // Pausa entre escaneos (en milisegundos)
+        let canScan = true; // Controla si se permite escanear
+        const messageElement = document.getElementById("message");
+
+        // Cargar los datos desde localStorage o inicializarlos si no existen
+        const scanLimits = JSON.parse(localStorage.getItem("scanLimits")) || {};
+
+        function saveScanLimits() {
+            // Guardar los datos en localStorage
+            localStorage.setItem("scanLimits", JSON.stringify(scanLimits));
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            if (!canScan) return; // Si no se puede escanear, salir de la función
+
+            // Verificar si el código escaneado es válido
+            if (validCodes.includes(decodedText)) {
+                if (!scanLimits[decodedText]) {
+                    scanLimits[decodedText] = 0;
+                }
+
+                if (scanLimits[decodedText] < maxScansPerCode) {
+                    scanLimits[decodedText]++;
+                    const scans = scanLimits[decodedText];
+                    messageElement.textContent = ¡Código QR ${decodedText} escaneado exitosamente! Usos restantes: ${maxScansPerCode - scans};
+                    messageElement.classList.remove("error");
+                    messageElement.classList.add("message");
+
+                    // Guardar los datos actualizados
+                    saveScanLimits();
+
+                    canScan = false;
+                    setTimeout(() => {
+                        canScan = true;
+                        messageElement.textContent = "Puedes escanear otro código QR.";
+                    }, scanPause);
+                } else {
+                    messageElement.textContent = El código QR ${decodedText} ya alcanzó su límite de escaneos (${maxScansPerCode}).;
+                    messageElement.classList.remove("message");
+                    messageElement.classList.add("error");
+                }
+            } else {
+                messageElement.textContent = "Código QR no válido. Solo se admiten números del 1 al 26.";
+                messageElement.classList.remove("message");
+                messageElement.classList.add("error");
+            }
+        }
+
+        function onScanFailure(error) {
+            console.warn(Scan failed: ${error});
+        }
+
+        function resetScans() {
+            if (confirm("¿Estás seguro de que deseas reiniciar los escaneos? Esta acción no se puede deshacer.")) {
+                // Limpiar los datos y recargar la página
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: 250 },
+            false
+        );
+
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    </script>
+</body>
+</html>
